@@ -1,11 +1,11 @@
 from django.db.models import F
-from django.http import HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views import generic 
 
-from .models import Choice, Question
+from .models import Choice, Question, FollowUpQuestion
 
 class IndexView(generic.ListView):
     template_name = "polls/index.html"
@@ -17,12 +17,13 @@ class IndexView(generic.ListView):
 class DetailView(generic.DetailView):
     model = Question
     template_name = "polls/detail.html"
-
     def get_queryset(self):
-        return Question.objects.filter(pub_date__lte=timezone.now())
+        return (
+            Question.objects.filter(pub_date__lte=timezone.now(), choice__isnull=False)
+            .distinct()
+        )
     
-    def get_queryset(self):
-        return Question.objects.filter(choice__isnull=False).distinct()
+
 
 class ResultsView(generic.DetailView):
     model = Question
@@ -45,4 +46,15 @@ def vote(request, question_id):
         selected_choice.votes = F("votes") + 1
         selected_choice.save()
 
+        # If the question has any follow-up questions, redirect to the
+        # followup's own ID; otherwise go to the results page.
+        followups = question.followupquestion_set.all()
+        if followups.exists():
+            followup = followups.first()
+            return HttpResponseRedirect(reverse("polls:followup", args=(followup.id,)))
+
         return HttpResponseRedirect(reverse("polls:results", args=(question.id,)))
+
+def followupquestionDisplay(request, pk):
+    followup = get_object_or_404(FollowUpQuestion, pk=pk)
+    return render(request, "polls/followupdetail.html", {"followup": followup})

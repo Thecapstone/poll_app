@@ -22,3 +22,15 @@ class Choice(models.Model):
 
     def __str__(self):
         return self.choice_text
+    
+class FollowUpQuestion(models.Model):
+    followupquestion = models.ForeignKey(Question, on_delete=models.CASCADE)
+    followupquestion_text = models.CharField(max_length=200)
+    pub_date = models.DateTimeField("date published")
+
+    def __str__(self):
+        return self.followupquestion_text
+    
+    def was_published_recently(self):
+        now = timezone.now()
+        return now - datetime.timedelta(days=1) <= self.pub_date <= now
